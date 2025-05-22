@@ -5,10 +5,12 @@ pipeline {
         IMAGE_NAME = "ci-cd-test"
         CONTAINER_NAME = "ci-cd-test"
         APP_DIR = "ci-cd-test"
-        GIT_REPO = "https://github.com/AdminVelesium/ci-cd-test"
+        GIT_REPO = "https://github.com/Avinash27-A/ci-cd-test.git"
+        GIT_BRANCH = "main"
     }
 
     stages {
+
         stage('Prepare Directory') {
             steps {
                 sh '''
@@ -21,7 +23,7 @@ pipeline {
         stage('Clone Repository') {
             steps {
                 dir("$APP_DIR") {
-                    git branch: 'main', credentialsId: 'Avinash6527', url: 'https://github.com/Avinash27-A/ci-cd-test.git'
+                    git branch: "${env.GIT_BRANCH}", credentialsId: 'Avinash6527', url: "${env.GIT_REPO}"
                 }
             }
         }
@@ -34,19 +36,31 @@ pipeline {
             }
         }
 
-        stage('Stop & Remove Existing Container') {
+        stage('Reload and Restart systemd Service') {
             steps {
                 sh '''
-                    docker stop $CONTAINER_NAME || true
-                    docker rm $CONTAINER_NAME || true
+                    echo "Stopping old service (if running)..."
+                    sudo systemctl stop $CONTAINER_NAME || true
+
+                    echo "Reloading systemd daemon..."
+                    sudo systemctl daemon-reload
+
+                    echo "Starting service..."
+                    sudo systemctl start $CONTAINER_NAME
+
+                    echo "Service status:"
+                    sudo systemctl status $CONTAINER_NAME --no-pager
                 '''
             }
         }
+    }
 
-        stage('Run Container') {
-            steps {
-                sh 'docker run -d -p 5000:5000 --name $CONTAINER_NAME $IMAGE_NAME'
-            }
+    post {
+        failure {
+            echo 'Pipeline failed.'
+        }
+        success {
+            echo 'Deployment successful!'
         }
     }
 }
